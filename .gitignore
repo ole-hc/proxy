@@ -30,6 +30,7 @@
 *.exe
 *.out
 *.app
+http_redirector
 
 # IDE 
 .vscode
