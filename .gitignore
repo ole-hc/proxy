@@ -31,6 +31,7 @@
 *.out
 *.app
 http_redirector
+proxy
 
 # IDE 
 .vscode
