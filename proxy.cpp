@@ -11,23 +11,72 @@ void signalHandler(int sig) {
 }
 
 void handleClient(int &client) {
+    unordered_map<string, vector<string>> message_dict;
     // http parser 
     string request = "";
-    char buffer[2];
+    char buffer[BUFFER_SIZE];
     int read_bytes = 0;
     char* end_of_request = nullptr;
-
     while ((read_bytes = recv(client, buffer, sizeof(buffer), 0)) > 0) 
     {
         request.append(buffer, read_bytes);
 
         // stop reading when end of http : \r\n\r\n is reached
         end_of_request = &request.back();
+
         if(request.size() >= 4 && request.compare(request.size() - 4, 4, "\r\n\r\n") == 0)
             break;
-    }   
+    }
+    // parse http header to "dict"
+    // find all line breaks in the header
+    vector<int> positions;
+    string line_break = "\r\n";
+    int substr_position = request.find(line_break, 0);
+    while (substr_position != string::npos)
+    {
+        positions.push_back(substr_position);
+        substr_position = request.find(line_break, substr_position + 1);
+    }
+    // create dict 
+    int pos_colon = 0;
+    int start_substr = 1;
+    string key = "";
+    string value = "";
+    key = "Tpye";
+    value = request.substr(0, positions.at(0));
+    start_substr = (positions.at(0) + 3);
+    message_dict[key].push_back(value);
+
+    for (size_t i = 1; i < positions.size() - 1; i++)
+    {
+        key = "";
+        value = "";
+
+        pos_colon = request.find(":", start_substr);
+        key = request.substr(start_substr - 1, pos_colon - start_substr + 1);
+        value = request.substr(pos_colon + 2, positions.at(i) - pos_colon - 1);
+        start_substr = (positions.at(i) + 3);
+
+        message_dict[key].push_back(value);
+    }
     
     cout << "Msg: " << request << endl;
+    
+    cout << "Ausgabe des dict ---- \n";
+    // Test ausgabe dicts:
+    for (const auto& key_values : message_dict)
+    {
+        const string key = key_values.first;
+        const vector<string>& values = key_values.second;
+
+        for (const auto& value : values)
+        {
+            cout << key << ": " << value << "\n";
+        }
+        
+    }
+    
+    
     cout << "READ -- END -- closing thread... \n";
 }
 
