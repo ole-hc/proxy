@@ -5,15 +5,15 @@
 #define REMOTE_IP_ADDR "192.168.178.161"
 #define BUFFER_SIZE 1024
 
+// enable shutdown on CTRL + C
 void signalHandler(int sig) {
     cout << "Interrupt signal -- Programm stopped\n";
     exit(sig);
 }
 
-void handleClient(int &client) {
-    unordered_map<string, vector<string>> message_dict;
-    // http parser 
-    string current_line = "";
+// read and parse http message into dict
+void readClient(int &client, unordered_map<string, vector<string>>& message_dict) {
+string current_line = "";
     string line_overflow = "";
     string key = "Type";
     string value = "";
@@ -23,7 +23,7 @@ void handleClient(int &client) {
     bool header_done = false;
     while (!header_done) 
     {
-        // read port buffer ; break if empty
+        // read port buffer
         int read_bytes = recv(client, buffer, sizeof(buffer), 0);
         current_line.append(buffer, read_bytes);
 
@@ -59,9 +59,10 @@ void handleClient(int &client) {
         if(current_line.empty())
             header_done = true;
     }
-    
-    cout << "Ausgabe des dict ---- \n";
-    // Test ausgabe dicts:
+}
+
+void printDict(unordered_map<string, vector<string>>&  message_dict) {
+    cout << "--- Ausgabe des dict: ---\n";
     for (const auto& key_values : message_dict)
     {
         const string key = key_values.first;
@@ -73,6 +74,12 @@ void handleClient(int &client) {
         }
         
     }
+}
+
+void handleClient(int &client) {
+    unordered_map<string, vector<string>> message_dict;
+    readClient(client, message_dict);
+    printDict(message_dict);
     
     cout << "READ -- END -- closing thread... \n";
 }
@@ -81,10 +88,10 @@ int main(void) {
     signal(SIGINT, signalHandler);
 
     // create TCP socket
-    int listening_socket = socket(AF_INET, SOCK_STREAM, 0);
+    int server_socket = socket(AF_INET, SOCK_STREAM, 0);
     // re-use socket --> no delay after restart
     int opt = 1;
-    setsockopt(listening_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     
     // init server address
     struct sockaddr_in serv_addr;
@@ -92,10 +99,10 @@ int main(void) {
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = inet_addr(IP_ADDR);
     serv_addr.sin_port = htons(PORT);
-    bind(listening_socket, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+    bind(server_socket, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
 
     // activate socket
-    listen(listening_socket, 10);
+    listen(server_socket, 10);
     vector<int> clients;
     
     // main loop
@@ -105,7 +112,7 @@ int main(void) {
         struct sockaddr_in client_addr;
         unsigned int client_length = sizeof(client_addr);
 
-        int client_socket = accept(listening_socket, (struct sockaddr*)&client_addr, &client_length);
+        int client_socket = accept(server_socket, (struct sockaddr*)&client_addr, &client_length); // blocking!
 
         if(client_socket < 0)
             cout << "ERROR while connecting !!\n";
